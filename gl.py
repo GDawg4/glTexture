@@ -42,6 +42,7 @@ class GL(object):
         self.active_texture = None
         self.active_texture2 = None
         self.active_shader = None
+        self.light = V3(0, 0, 1)
         self.gl_create_window(width, height)
 
     def gl_create_window(self, width, height):
@@ -211,7 +212,6 @@ class GL(object):
                     y += 1 if y_0 < y_1 else -1
                     limit += 1
 
-
     def draw_poly(self, points, color=None):
         count = len(points)
         for i in range(count):
@@ -219,7 +219,7 @@ class GL(object):
             v1 = points[(i + 1) % count]
             self.gl_line_coord(v0, v1, color)
 
-    def load_model(self, file_name, scale=V3(1, 1, 1), translate=V3(0, 0, 0), texture=None, is_wireframe=False):
+    def load_model(self, file_name, scale=V3(1, 1, 1), translate=V3(0, 0, 0), is_wireframe=False):
         model = Obj(file_name)
 
         light = V3(0, 0, 1)
@@ -247,7 +247,7 @@ class GL(object):
                 if vert_count > 3:
                     v3 = transform(v3, scale=scale, translate=translate)
 
-                if texture:
+                if self.active_texture:
                     vt0 = model.tex_coords[face[0][1] - 1]
                     vt1 = model.tex_coords[face[1][1] - 1]
                     vt2 = model.tex_coords[face[2][1] - 1]
@@ -263,27 +263,31 @@ class GL(object):
                     vt2 = V2(0, 0)
                     vt3 = V2(0, 0)
 
-                normal = cross_product(substract_vectors(v0, v1), substract_vectors(v0, v2))
-                #print(v0, v1, v2)
-                #print(self.substract_vectors(v0, v1), self.substract_vectors(v0, v2))
-                #print(normal)
-                if vector3_norm(normal) != 0:
-                    normal = multiply_vector_with_constant(normal, 1/vector3_norm(normal))
-                #print(self.vector3_norm(normal))
+                # normal = cross_product(substract_vectors(v0, v1), substract_vectors(v0, v2))
+                # #print(v0, v1, v2)
+                # #print(self.substract_vectors(v0, v1), self.substract_vectors(v0, v2))
+                # #print(normal)
+                # if vector3_norm(normal) != 0:
+                #     normal = multiply_vector_with_constant(normal, 1/vector3_norm(normal))
+                #
+                # intensity = point_product(normal, light)
+                # if intensity >= 0:
+                #     self.triangle_bc(v0, v1, v2, texture=texture, tex_coords=(vt0, vt1, vt2), intensity=intensity)
+                #     if vert_count > 3:  # asumamos que 4, un cuadrado
+                #         self.triangle_bc(v0, v2, v3,
+                #                          texture=texture,
+                #                          tex_coords=(vt0, vt2, vt3),
+                #                          intensity=intensity)
 
-                intensity = point_product(normal, light)
-                #print(intensity)
-                #print(vt0, vt1, vt2)
-                if intensity >= 0:
-                    self.triangle_bc(v0, v1, v2, texture=texture, tex_coords=(vt0, vt1, vt2), intensity=intensity)
-                    #print(v0, v1, v2)
-                    #print(vt0, vt1, vt2)
-                    #print(intensity, '\n')
-                    if vert_count > 3:  # asumamos que 4, un cuadrado
-                        self.triangle_bc(v0, v2, v3,
-                                         texture=texture,
-                                         tex_coords=(vt0, vt2, vt3),
-                                         intensity=intensity)
+                vn0 = model.normals[face[0][2] - 1]
+                vn1 = model.normals[face[1][2] - 1]
+                vn2 = model.normals[face[2][2] - 1]
+                if vert_count > 3:
+                    vn3 = model.normals[face[3][2] - 1]
+
+                self.triangle_bc(v0, v1, v2, tex_coords=(vt0, vt1, vt2), normals=(vn0, vn1, vn2))
+                if vert_count > 3:  # asumamos que 4, un cuadrado
+                    self.triangle_bc(v0, v2, v3, tex_coords=(vt0, vt2, vt3), normals=(vn0, vn2, vn3))
 
     def triangle(self, A, B, C, color=None):
         def flat_bottom_triangle(v1, v2, v3):
@@ -334,7 +338,7 @@ class GL(object):
             flat_top_triangle(A, B, D)
 
     # Barycentric Coordinates
-    def triangle_bc(self, A, B, C, _color=WHITE, texture=None, tex_coords=(), intensity=1):
+    def triangle_bc(self, A, B, C, _color=WHITE, normals = (), texture=None, tex_coords=(), intensity=1):
         # bounding box
         minX = min(A.x, B.x, C.x)
         minY = min(A.y, B.y, C.y)
@@ -353,24 +357,32 @@ class GL(object):
                     z = A.z * u + B.z * v + C.z * w
                     if z > self.z_buffer[y][x]:
 
-                        b, g, r = _color
-                        b /= 255
-                        g /= 255
-                        r /= 255
+                        r, g, b = self.active_shader(
+                            self,
+                            verts=(A, B, C),
+                            bary_coords=(u, v, w),
+                            tex_coords=tex_coords,
+                            normals=normals,
+                            color=_color or self.curr_color)
 
-                        b *= intensity
-                        g *= intensity
-                        r *= intensity
-
-                        if texture:
-                            ta, tb, tc = tex_coords
-                            tx = ta.x * u + tb.x * v + tc.x * w
-                            ty = ta.y * u + tb.y * v + tc.y * w
-
-                            tex_color = texture.get_color(tx, ty)
-                            b *= tex_color[0] / 255
-                            g *= tex_color[1] / 255
-                            r *= tex_color[2] / 255
+                        # b, g, r = _color
+                        # b /= 255
+                        # g /= 255
+                        # r /= 255
+                        #
+                        # b *= intensity
+                        # g *= intensity
+                        # r *= intensity
+                        #
+                        # if texture:
+                        #     ta, tb, tc = tex_coords
+                        #     tx = ta.x * u + tb.x * v + tc.x * w
+                        #     ty = ta.y * u + tb.y * v + tc.y * w
+                        #
+                        #     tex_color = texture.get_color(tx, ty)
+                        #     b *= tex_color[0] / 255
+                        #     g *= tex_color[1] / 255
+                        #     r *= tex_color[2] / 255
 
                         self.gl_vertex_coord(x, y, point_color=color(r, g, b))
                         self.z_buffer[y][x] = z
