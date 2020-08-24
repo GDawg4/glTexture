@@ -14,18 +14,39 @@ center = V2(0, 0)
 #
 # r.light = multiply_vector_with_constant(light, 1/vector3_norm(light))
 
-r = GL(768, 432)
+r = GL(500, 500)
 
 r.active_texture = Texture('./textures/model.bmp')
 r.active_shader = gourad
 
 pos_model = V3(0, 0, -5)
-r.look_at(pos_model, V3(2, 2, 0))
 
+r.look_at(pos_model, V3(0, 3, 0))
 r.load_model('./models/model.obj',
              pos_model,
-             V3(1, 1, 1),
+             V3(2, 2, 2),
              V3(0, 0, 0))
 
-#r.gl_zbuffer('zbuffer.bmp')
-r.gl_finish('test.bmp')
+r.gl_finish('high.bmp')
+
+r.look_at(pos_model, V3(0, 0, 0))
+r.load_model('./models/model.obj',
+             pos_model,
+             V3(2, 2, 2),
+             V3(0, 0, 0))
+r.gl_finish('med.bmp')
+
+
+r.look_at(pos_model, V3(0, -1, 0))
+r.load_model('./models/model.obj',
+             pos_model,
+             V3(2, 2, 2),
+             V3(0, 0, 0))
+r.gl_finish('low.bmp')
+
+r.look_at(pos_model, V3(0, 0, 1))
+r.load_model('./models/model.obj',
+             pos_model,
+             V3(2, 2, 2),
+             V3(0, 0, 25))
+r.gl_finish('dutch.bmp')

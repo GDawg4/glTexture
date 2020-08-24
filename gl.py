@@ -436,7 +436,7 @@ class GL(object):
         trans_vertex = V3(trans_vertex[0][0] / trans_vertex[3][0],
                           trans_vertex[1][0] / trans_vertex[3][0],
                           trans_vertex[2][0] / trans_vertex[3][0])
-        print(trans_vertex)
+
         return trans_vertex
 
     def create_object_matrix(self, translate=V3(0, 0, 0), scale=V3(1, 1, 1), rotate=V3(0, 0, 0)):
