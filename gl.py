@@ -1,6 +1,6 @@
 import struct
 from collections import namedtuple
-from math import sqrt
+from math import sqrt, tan, sin, cos
 
 from obj import Obj
 from linear_algebra import *
@@ -44,6 +44,8 @@ class GL(object):
         self.active_shader = None
         self.light = V3(0, 0, 1)
         self.gl_create_window(width, height)
+        self.create_view_matrix()
+        self.create_projection_matrix()
 
     def gl_create_window(self, width, height):
         self.width = width
@@ -57,9 +59,14 @@ class GL(object):
         self.view_port_width = width
         self.view_port_heigth = height
 
+        self.viewport_matrix = [[width / 2, 0, 0, x + width / 2],
+                                [0, height / 2, 0, y + height / 2],
+                                [0, 0, 0.5, 0.5],
+                                [0, 0, 0, 1]]
+
     def gl_clear(self):
         self.pixels = [[self.clear_color for x in range(self.width)] for y in range(self.height)]
-        self.z_buffer = [[-float('inf') for x in range(self.width)] for y in range(self.height)]
+        self.z_buffer = [[float('inf') for x in range(self.width)] for y in range(self.height)]
 
     def gl_vertex(self, x, y, point_color=None):
         pixel_x = (x+1)*(self.view_port_width/2) + self.view_port_x
@@ -219,20 +226,23 @@ class GL(object):
             v1 = points[(i + 1) % count]
             self.gl_line_coord(v0, v1, color)
 
-    def load_model(self, file_name, scale=V3(1, 1, 1), translate=V3(0, 0, 0), is_wireframe=False):
+    def load_model(self, file_name, translate=V3(0, 0, 0), scale=V3(1, 1, 1), rotate=V3(0, 0, 0), is_wireframe=False):
         model = Obj(file_name)
 
-        light = V3(0, 0, 1)
+        model_matrix = self.create_object_matrix(translate, scale, rotate)
+
+        rotation_matrix = self.create_rotation_matrix(rotate)
 
         for face in model.faces:
             vert_count = len(face)
             if is_wireframe:
-                for vert in range(vert_count):
-                    v0 = model.vertices[face[vert][0] - 1]
-                    v1 = model.vertices[face[(vert + 1) % vert_count][0] - 1]
-                    v0 = V2(round(v0[0] * scale.x + translate.x), round(v0[1] * scale.y + translate.y))
-                    v1 = V2(round(v1[0] * scale.x + translate.x), round(v1[1] * scale.y + translate.y))
-                    self.gl_line_coord(v0, v1)
+                pass
+                # for vert in range(vert_count):
+                #     v0 = model.vertices[face[vert][0] - 1]
+                #     v1 = model.vertices[face[(vert + 1) % vert_count][0] - 1]
+                #     v0 = V2(round(v0[0] * scale.x + translate.x), round(v0[1] * scale.y + translate.y))
+                #     v1 = V2(round(v1[0] * scale.x + translate.x), round(v1[1] * scale.y + translate.y))
+                #     self.gl_line_coord(v0, v1)
 
             else:
                 v0 = model.vertices[face[0][0] - 1]
@@ -241,11 +251,11 @@ class GL(object):
                 if vert_count > 3:
                     v3 = model.vertices[face[3][0] - 1]
 
-                v0 = transform(v0, scale=scale, translate=translate)
-                v1 = transform(v1, scale=scale, translate=translate)
-                v2 = transform(v2, scale=scale, translate=translate)
+                v0 = self.transform(v0, model_matrix)
+                v1 = self.transform(v1, model_matrix)
+                v2 = self.transform(v2, model_matrix)
                 if vert_count > 3:
-                    v3 = transform(v3, scale=scale, translate=translate)
+                    v3 = self.transform(v3, model_matrix)
 
                 if self.active_texture:
                     vt0 = model.tex_coords[face[0][1] - 1]
@@ -282,8 +292,14 @@ class GL(object):
                 vn0 = model.normals[face[0][2] - 1]
                 vn1 = model.normals[face[1][2] - 1]
                 vn2 = model.normals[face[2][2] - 1]
+
+                vn0 = self.dir_transform(vn0, rotation_matrix)
+                vn1 = self.dir_transform(vn1, rotation_matrix)
+                vn2 = self.dir_transform(vn2, rotation_matrix)
+
                 if vert_count > 3:
                     vn3 = model.normals[face[3][2] - 1]
+                    vn3 = self.dir_transform(vn3, rotation_matrix)
 
                 self.triangle_bc(v0, v1, v2, tex_coords=(vt0, vt1, vt2), normals=(vn0, vn1, vn2))
                 if vert_count > 3:  # asumamos que 4, un cuadrado
@@ -337,16 +353,15 @@ class GL(object):
             flat_bottom_triangle(D, B, C)
             flat_top_triangle(A, B, D)
 
-    # Barycentric Coordinates
     def triangle_bc(self, A, B, C, _color=WHITE, normals = (), texture=None, tex_coords=(), intensity=1):
         # bounding box
-        minX = min(A.x, B.x, C.x)
-        minY = min(A.y, B.y, C.y)
-        maxX = max(A.x, B.x, C.x)
-        maxY = max(A.y, B.y, C.y)
+        min_x = round(min(A.x, B.x, C.x))
+        min_y = round(min(A.y, B.y, C.y))
+        max_x = round(max(A.x, B.x, C.x))
+        max_y = round(max(A.y, B.y, C.y))
 
-        for x in range(minX, maxX + 1):
-            for y in range(minY, maxY + 1):
+        for x in range(min_x, max_x + 1):
+            for y in range(min_y, max_y + 1):
                 if x >= self.width or x < 0 or y >= self.height or y < 0:
                     continue
 
@@ -355,7 +370,7 @@ class GL(object):
                 if u >= 0 and v >= 0 and w >= 0:
 
                     z = A.z * u + B.z * v + C.z * w
-                    if z > self.z_buffer[y][x]:
+                    if z < self.z_buffer[y][x]:
 
                         r, g, b = self.active_shader(
                             self,
@@ -387,13 +402,97 @@ class GL(object):
                         self.gl_vertex_coord(x, y, point_color=color(r, g, b))
                         self.z_buffer[y][x] = z
 
+    def create_projection_matrix(self, n=0.1, f=1000, fov=60):
+        t = tan((fov*3.1415/180)/2)*n
+        r = t*self.view_port_width/self.view_port_heigth
 
+        self.projection_matrix = [[n/r, 0, 0, 0],
+                                 [0, n/t, 0, 0],
+                                 [0, 0, -(f/n)/(f/n), -(2*f*n)/(f-n)],
+                                 [0, 0, -1, 0]]
 
+    def dir_transform(self, vertex, v_matrix):
+        aug_vertex = V4(vertex[0], vertex[1], vertex[2], 0)
+        trans_vertex = matrix_multiplication(v_matrix, v_to_matrix(aug_vertex))
+        trans_vertex = V3(
+            trans_vertex[0][0],
+            trans_vertex[1][0],
+            trans_vertex[2][0]
+        )
 
+        return trans_vertex
 
+    def transform(self, vertex, v_matrix):
+        aug_vertex = V4(vertex[0], vertex[1], vertex[2], 1)
+        #trans_vertex = matrix_multiplication(self.viewport_matrix, matrix_multiplication(self.projection_matrix, matrix_multiplication(self.view_matrix, matrix_multiplication(v_matrix, v_to_matrix(aug_vertex)))))
 
+        # test1 = matrix_multiplication(self.viewport_matrix, self.projection_matrix)
+        # test2 = matrix_multiplication(test1, self.view_matrix)
+        # test3 = matrix_multiplication(test2, v_matrix)
+        # test4 = matrix_multiplication(test3, v_to_matrix(aug_vertex))
 
+        trans_vertex = matrix_multiplication(matrix_multiplication(matrix_multiplication(matrix_multiplication(self.viewport_matrix, self.projection_matrix), self.view_matrix), v_matrix), v_to_matrix(aug_vertex))
 
+        trans_vertex = V3(trans_vertex[0][0] / trans_vertex[3][0],
+                          trans_vertex[1][0] / trans_vertex[3][0],
+                          trans_vertex[2][0] / trans_vertex[3][0])
+        print(trans_vertex)
+        return trans_vertex
 
+    def create_object_matrix(self, translate=V3(0, 0, 0), scale=V3(1, 1, 1), rotate=V3(0, 0, 0)):
 
+        translate_matrix = [[1, 0, 0, translate.x],
+                            [0, 1, 0, translate.y],
+                            [0, 0, 1, translate.z],
+                            [0, 0, 0, 1]]
 
+        scale_matrix = [[scale.x, 0, 0, 0],
+                        [0, scale.y, 0, 0],
+                        [0, 0, scale.z, 0],
+                        [0, 0, 0, 1]]
+
+        rotation_matrix = self.create_rotation_matrix(rotate)
+        return matrix_multiplication(matrix_multiplication(translate_matrix, rotation_matrix), scale_matrix)
+
+    def create_rotation_matrix(self, rotate=V3(0, 0, 0)):
+
+        pitch = deg_to_rad(rotate.x)
+        yaw = deg_to_rad(rotate.y)
+        roll = deg_to_rad(rotate.z)
+
+        rotation_x = [[1, 0, 0, 0],
+                      [0, cos(pitch), -sin(pitch), 0],
+                      [0, sin(pitch), cos(pitch), 0],
+                      [0, 0, 0, 1]]
+
+        rotation_y = [[cos(yaw), 0, sin(yaw), 0],
+                      [0, 1, 0, 0],
+                      [-sin(yaw), 0, cos(yaw), 0],
+                      [0, 0, 0, 1]]
+
+        rotation_z = [[cos(roll), -sin(roll), 0, 0],
+                      [sin(roll), cos(roll), 0, 0],
+                      [0, 0, 1, 0],
+                      [0, 0, 0, 1]]
+
+        return matrix_multiplication(matrix_multiplication(rotation_x, rotation_y), rotation_z)
+
+    def create_view_matrix(self, cam_position = V3(0,0,0), cam_rotation = V3(0,0,0)):
+        cam_matrix = self.create_object_matrix(translate=cam_position, rotate=cam_rotation)
+        self.view_matrix = inverse(cam_matrix)
+
+    def look_at(self, eye, cam_position=V3(0,0,0)):
+        forward = substract_vectors(eye, cam_position)
+        forward = multiply_vector_with_constant(forward, 1/vector3_norm(forward))
+
+        right = cross_product(V3(0, 1, 0), forward)
+        right = multiply_vector_with_constant(right, 1/vector3_norm(right))
+
+        up = cross_product(forward, right)
+        up = multiply_vector_with_constant(up, 1/vector3_norm(up))
+
+        cam_matrix = [[right[0], up[0], forward[0], cam_position.x],
+                      [right[1], up[1], forward[1], cam_position.y],
+                      [right[2], up[2], forward[2], cam_position.z],
+                      [0, 0, 0, 1]]
+        self.view_matrix = inverse(cam_matrix)
