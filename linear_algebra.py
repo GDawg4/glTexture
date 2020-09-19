@@ -19,9 +19,9 @@ def cross_product(first_vector, second_vector):
 
 
 def multiply_vector_with_constant(first_vector, constant):
-    return V3(first_vector.x*constant,
-              first_vector.y*constant,
-              first_vector.z*constant)
+    return V3(first_vector[0]*constant,
+              first_vector[1]*constant,
+              first_vector[2]*constant)
 
 
 def point_product(first_vector, second_vector):
@@ -32,6 +32,12 @@ def substract_vectors(first_vector, second_vector):
     return V3(second_vector[0] - first_vector[0],
               second_vector[1] - first_vector[1],
               second_vector[2] - first_vector[2])
+
+
+def add_vectors(first_vector, second_vector):
+    return V3(second_vector[0] + first_vector[0],
+              second_vector[1] + first_vector[1],
+              second_vector[2] + first_vector[2])
 
 
 def vector3_norm(vector):
@@ -103,6 +109,12 @@ def inverse(a):
         ret.append(tmp[i][len(tmp[i])//2:])
     return ret
 
+def multiply_vectors(first_vector, second_vector):
+    return V3(
+        first_vector[0]*second_vector[0],
+        first_vector[1] * second_vector[1],
+        first_vector[2] * second_vector[2]
+    )
 
 
 

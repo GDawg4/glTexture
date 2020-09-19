@@ -1,20 +1,28 @@
 from gl import color, V2, V3
 from ray import RayTracer
 from obj import Obj, Texture
-from sphere import Sphere, Material
+from sphere import Sphere, Material, PointLight, AmbientLight
 
-snow = Material(diffuse=color(1, 1, 1))
-charcoal = Material(diffuse=color(0, 0, 0))
-orange = Material(diffuse=color(1, 0.27, 0))
-light_grey = Material(diffuse=color(0.8, 0.8, 0.8))
-grey = Material(diffuse=color(0.5, 0.5, 0.5))
+brick = Material(diffuse=color(0.8, 0.25, 0.25), spec=16)
+stone = Material(diffuse=color(0.4, 0.4, 0.4), spec=32)
+grass = Material(diffuse=color(0.5, 1, 0), spec=32)
+glass = Material(diffuse=color(0.25, 1, 1), spec=64)
+snow = Material(diffuse=color(1, 1, 1), spec=16)
+charcoal = Material(diffuse=color(0, 0, 0), spec=16)
+orange = Material(diffuse=color(1, 0.27, 0), spec=16)
+light_grey = Material(diffuse=color(0.8, 0.8, 0.8), spec=16)
+grey = Material(diffuse=color(0.5, 0.5, 0.5), spec=16)
 
 width = 500
 height = 800
 r = RayTracer(width, height)
 
-r.clear_color = color(0, 0, 0.5)
-r.gl_clear()
+r.point_light = PointLight(position=V3(-2, 2, 0), intensity=0.5)
+r.ambient_light = AmbientLight(strength=0.2)
+
+# r.clear_color = color(0, 0, 0.5)
+# r.gl_clear()
+#r.scene.append(Sphere(V3(0, 0, -5), 1, brick))
 
 r.scene.append(Sphere(V3(0, -2, -7), 1, snow))
 r.scene.append(Sphere(V3(0, -1.75, -6), 0.25, charcoal))

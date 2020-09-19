@@ -46,6 +46,9 @@ class RayTracer(object):
 
         self.scene = []
 
+        self.point_light = None
+        self.ambient_light = None
+
     def gl_create_window(self, width, height):
         self.width = width
         self.height = height
@@ -194,14 +197,82 @@ class RayTracer(object):
                 direction = multiply_vector_with_constant(direction, 1/vector3_norm(direction))
 
                 material = None
+                intersect = None
 
                 for obj in self.scene:
-                    intersect = obj.ray_intersect(self.camPosition, direction)
-                    if intersect is not None:
-                        if intersect.distance < self.z_buffer[y][x]:
-                            self.z_buffer[y][x] = intersect.distance
+                    hit = obj.ray_intersect(self.camPosition, direction)
+                    if hit is not None:
+                        if hit.distance < self.z_buffer[y][x]:
+                            self.z_buffer[y][x] = hit.distance
                             material = obj.material
+                            intersect = hit
 
-                if material is not None:
-                    self.gl_vertex_coord(x, y, material.diffuse)
+                if intersect is not None:
+                    self.gl_vertex_coord(x, y, self.point_color(material, intersect))
 
+    def point_color(self, material, intersect):
+
+        object_color = [material.diffuse[2] / 255,
+                        material.diffuse[1] / 255,
+                        material.diffuse[0] / 255]
+
+        ambient_color = [0, 0, 0]
+        diffuse_color = [0, 0, 0]
+        spec_color = [0, 0, 0]
+
+        shadow_intensity = 0
+
+        if self.ambient_light:
+            ambient_color = [self.ambient_light.strength * self.ambient_light.color[2] / 255,
+                             self.ambient_light.strength * self.ambient_light.color[1] / 255,
+                             self.ambient_light.strength * self.ambient_light.color[0] / 255]
+
+        if self.point_light:
+            # Sacamos la direccion de la luz para este punto
+            light_dir = substract_vectors(intersect.point, self.point_light.position)
+            light_dir = multiply_vector_with_constant(light_dir, 1/vector3_norm(light_dir))
+
+            # Calculamos el valor del diffuse color
+            intensity = self.point_light.intensity * max(0, point_product(light_dir, intersect.normal))
+            diffuse_color = [intensity * self.point_light.color[2] / 255,
+                             intensity * self.point_light.color[1] / 255,
+                             intensity * self.point_light.color[2] / 255]
+
+            # Iluminacion especular
+            view_dir = substract_vectors(intersect.point, self.camPosition)
+            view_dir = multiply_vector_with_constant(view_dir, 1/vector3_norm(view_dir))
+
+            # R = 2 * (N dot L) * N - L
+            reflect = 2 * point_product(intersect.normal, light_dir)
+            reflect = multiply_vector_with_constant(intersect.normal, reflect)
+            reflect = substract_vectors(light_dir, reflect)
+
+            # spec_intensity: lightIntensity * ( view_dir dot reflect) ** specularidad
+            spec_intensity = self.point_light.intensity * (max(0, point_product(view_dir, reflect)) ** material.spec)
+
+            spec_color = [spec_intensity * self.point_light.color[2] / 255,
+                          spec_intensity * self.point_light.color[1] / 255,
+                          spec_intensity * self.point_light.color[0] / 255]
+
+            for obj in self.scene:
+                if obj is not intersect.sceneObject:
+                    hit = obj.ray_intersect(intersect.point, light_dir)
+                    if hit is not None and intersect.distance < vector3_norm(substract_vectors(intersect.point, self.point_light.position)):
+                        shadow_intensity = 1
+
+        # Formula de iluminacion
+        #final_color = (ambient_color + (1 - shadow_intensity) * (diffuse_color + spec_color)) * object_color
+        final_color = multiply_vectors(object_color,
+                                       add_vectors(ambient_color,
+                                                   multiply_vector_with_constant(
+                                                       add_vectors(diffuse_color, spec_color), 1 - shadow_intensity)
+                                                   )
+                                       )
+
+        # Nos aseguramos que no suba el valor de color de 1
+
+        r = min(1, final_color[0])
+        g = min(1, final_color[1])
+        b = min(1, final_color[2])
+
+        return color(r, g, b)

@@ -1,16 +1,35 @@
 from gl import color
-from linear_algebra import V2, V3, V4, vector3_norm, multiply_vector_with_constant, point_product, substract_vectors
+from linear_algebra import V2, V3, V4, \
+    vector3_norm, multiply_vector_with_constant, point_product, substract_vectors, add_vectors
 
 WHITE = color(1,1,1)
 
+
+class AmbientLight(object):
+    def __init__(self, strength = 0, _color = WHITE):
+        self.strength = strength
+        self.color = _color
+
+
+class PointLight(object):
+    def __init__(self, position = V3(0,0,0), _color = WHITE, intensity = 1):
+        self.position = position
+        self.intensity = intensity
+        self.color = _color
+
+
 class Material(object):
-    def __init__(self, diffuse=WHITE):
+    def __init__(self, diffuse = WHITE, spec = 0):
         self.diffuse = diffuse
+        self.spec = spec
 
 
 class Intersect(object):
-    def __init__(self, distance):
+    def __init__(self, distance, point, normal, scene_object):
         self.distance = distance
+        self.point = point
+        self.normal = normal
+        self.sceneObject = scene_object
 
 
 class Sphere(object):
@@ -36,4 +55,12 @@ class Sphere(object):
         if t0 < 0:
             return None
 
-        return Intersect(distance=t0)
+        temp = multiply_vector_with_constant(direction, t0)
+        hit = add_vectors(orig, temp)
+        norm = substract_vectors(self.center, hit)
+        norm = multiply_vector_with_constant(norm, 1/vector3_norm(norm))
+
+        return Intersect(distance=t0,
+                         point=hit,
+                         normal=norm,
+                         scene_object=self)
