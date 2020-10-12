@@ -18,7 +18,7 @@ r = RayTracer(width, height)
 r.gl_clear_color(1, 1, 1)
 r.gl_clear()
 
-#r.env_map = EnvMap('envmap2.bmp')
+r.env_map = EnvMap('envmap2.bmp')
 
 r.point_light = PointLight(position=V3(0, 0, 0), intensity=1)
 r.ambient_light = AmbientLight(strength=0.1)
