@@ -15,24 +15,38 @@ glass = Material(spec=64, ior=1.5, mat_type=TRANSPARENT)
 width = 256
 height = 256
 r = RayTracer(width, height)
-r.gl_clear_color(0.2, 0.6, 0.8)
+r.gl_clear_color(1, 1, 1)
 r.gl_clear()
 
-r.env_map = EnvMap('envmap.bmp')
+#r.env_map = EnvMap('envmap2.bmp')
 
 r.point_light = PointLight(position=V3(0, 0, 0), intensity=1)
 r.ambient_light = AmbientLight(strength=0.1)
 
-r.scene.append(Plane(V3(0, -3, 0), V3(0, 1, 0), stone))
-r.scene.append(Plane(V3(0, 3, 0), V3(0, 1, 0), stone))
-r.scene.append(Plane(V3(0, 0, -10), V3(0, 0, 1), stone))
-r.scene.append(Plane(V3(-3, 0, 0), V3(1, 0, 0), stone))
-r.scene.append(Plane(V3(3, 0, 0), V3(1, 0, 0), stone))
+# r.scene.append(Plane(V3(0, -3, 0), V3(0, 1, 0), stone))
+# r.scene.append(Plane(V3(0, 3, 0), V3(0, 1, 0), stone))
+# r.scene.append(Plane(V3(0, 0, -10), V3(0, 0, 1), stone))
+# r.scene.append(Plane(V3(-3, 0, 0), V3(1, 0, 0), stone))
+# r.scene.append(Plane(V3(3, 0, 0), V3(1, 0, 0), stone))
+for i in range(-6, 7):
+    r.scene.append(AABB((i, 2, -15), 1, brick))
+    r.scene.append(AABB((i, 1, -15), 1, brick))
+    r.scene.append(AABB((i, 0, -15), 1, brick))
+    r.scene.append(AABB((i, -1, -15), 1, brick))
+    r.scene.append(AABB((i, -2, -15), 1, brick))
 
-r.scene.append(AABB((-1.5, -1, -5), 1.5, green))
-r.scene.append(AABB((1.5, -1, -5), 1.5, orange))
+for i in range(-15, -12):
+    r.scene.append(AABB((-6, 2, i), 1, brick))
+    r.scene.append(AABB((-6, 1, i), 1, brick))
+    r.scene.append(AABB((-6, 0, i), 1, brick))
+    r.scene.append(AABB((-6, -1, i), 1, brick))
+    r.scene.append(AABB((-6, -2, i), 1, brick))
 
-
+    r.scene.append(AABB((6, 2, i), 1, brick))
+    r.scene.append(AABB((6, 1, i), 1, brick))
+    r.scene.append(AABB((6, 0, i), 1, brick))
+    r.scene.append(AABB((6, -1, i), 1, brick))
+    r.scene.append(AABB((6, -2, i), 1, brick))
 
 r.rt_render()
 

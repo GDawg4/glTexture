@@ -243,8 +243,8 @@ class RayTracer(object):
 
     def rt_render(self):
         # pixel por pixel
-        for y in range(self.height):
-            for x in range(self.width):
+        for y in range(0, self.height, 2):
+            for x in range(0, self.width, 2):
 
                 # pasar valor de pixel a coordenadas NDC (-1 a 1)
                 p_x = 2 * ((x + 0.5) / self.width) - 1
